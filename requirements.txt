@@ -1,0 +1,6 @@
+# Copyright 2021 Wirepas Ltd 2021
+
+wirepas-mqtt-library==1.0rc1
+cbor2==4.1.2
+PyYAML==5.3
+pycryptodome==3.9.4

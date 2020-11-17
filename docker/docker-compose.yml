@@ -1,0 +1,21 @@
+version: '3.7'
+services:
+    prov-service:
+        container_name: wm-prov-srv
+        image: wm-prov-srv:${PROV_SRV_TAG:-latest}
+        build:
+            dockerfile: docker/Dockerfile
+            context: ../
+
+        restart: always
+
+        environment:
+            # To be modified
+            WM_SERVICES_MQTT_HOSTNAME:
+            WM_SERVICES_MQTT_PORT:
+            WM_SERVICES_MQTT_USERNAME:
+            WM_SERVICES_MQTT_PASSWORD:
+
+        # Modify ../examples/provisioning_config.yml to math the path of your config file.
+        volumes:
+            - ../examples/provisioning_config.yml:/home/wirepas/wm-provisioning/vars/settings.yml
