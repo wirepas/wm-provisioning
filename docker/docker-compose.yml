@@ -1,0 +1,18 @@
+version: '3.7'
+services:
+    prov-service:
+        container_name: wm-prov-srv
+        image: wirepas/provisioning_server:${PROV_SRV_TAG:-latest}
+
+        restart: always
+
+        environment:
+            # To be modified
+            WM_SERVICES_MQTT_HOSTNAME:
+            WM_SERVICES_MQTT_PORT:
+            WM_SERVICES_MQTT_USERNAME:
+            WM_SERVICES_MQTT_PASSWORD:
+
+        # Modify <full_path_to_your_config_file.yml> to match the path of your config file.
+        volumes:
+            - <full_path_to_your_config_file.yml>:/home/wirepas/wm-provisioning/vars/settings.yml
