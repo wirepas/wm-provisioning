@@ -100,6 +100,10 @@ def main():
                         default=get_default_value_from_env('WM_SERVICES_MQTT_PORT', 8883),
                         type=int,
                         help='MQTT broker port')
+    parser.add_argument('--insecure',
+                        default=get_default_value_from_env('WM_SERVICES_MQTT_INSECURE', False),
+                        type=bool,
+                        help='MQTT security option')                        
     parser.add_argument('--username',
                         default=get_default_value_from_env('WM_SERVICES_MQTT_USERNAME', 'mqttmasteruser'),
                         help='MQTT broker username')
@@ -114,10 +118,8 @@ def main():
     args = parser.parse_args()
 
     logging.basicConfig(format='%(levelname)s %(asctime)s %(message)s', level=logging.INFO)
-    insecure = False
-    if args.port == 1883:
-        insecure = True
-    wni = WirepasNetworkInterface(args.host, args.port, args.username, args.password, insecure)
+
+    wni = WirepasNetworkInterface(args.host, args.port, args.username, args.password, args.insecure)
 
     srv = ProvisioningServer(interface=wni, settings=args.config)
     srv.loop()
