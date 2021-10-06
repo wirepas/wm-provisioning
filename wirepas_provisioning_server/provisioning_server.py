@@ -114,8 +114,10 @@ def main():
     args = parser.parse_args()
 
     logging.basicConfig(format='%(levelname)s %(asctime)s %(message)s', level=logging.INFO)
-
-    wni = WirepasNetworkInterface(args.host, args.port, args.username, args.password)
+    insecure = False
+    if args.port == 1883:
+        insecure = True
+    wni = WirepasNetworkInterface(args.host, args.port, args.username, args.password, insecure)
 
     srv = ProvisioningServer(interface=wni, settings=args.config)
     srv.loop()
