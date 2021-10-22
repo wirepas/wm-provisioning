@@ -141,17 +141,14 @@ class ProvisioningData(dict):
             self[uid]["factory_key"] = factory_key
 
         logging.info("Append new UID: %s", uid)
-        logging.debug(" -  method: %s", self[uid]["method"])
-        if "factory_key" in self[uid].keys():
-            logging.debug(" -  factory_key: %s", self[uid]["factory_key"])
-        logging.debug(" -  encryption_key: %s", self[uid]["encryption_key"])
-        logging.debug(" -  authentication_key: %s", self[uid]["authentication_key"])
-        logging.debug(" -  network_address: %s", self[uid]["network_address"])
-        logging.debug(" -  network_channel: %s", self[uid]["network_channel"])
-        if "node_id" in self[uid].keys():
-            logging.debug(" -  node_id: %s", self[uid]["node_id"])
-        if "node_role" in self[uid].keys():
-            logging.debug(" -  node_role: %s", self[uid]["node_role"])
+        logging.debug(" -  method: %s", method)
+        logging.debug(" -  factory_key: %s", factory_key)
+        logging.debug(" -  encryption_key: %s", encryption_key)
+        logging.debug(" -  authentication_key: %s", authentication_key)
+        logging.debug(" -  network_address: %s", network_address)
+        logging.debug(" -  network_channel: %s", network_channel)
+        logging.debug(" -  node_id: %s", node_id)
+        logging.debug(" -  node_role: %s", node_role)
         if "user_specific" in self[uid].keys():
             for k in self[uid]["user_specific"]:
                 logging.debug(" - %d : %s", k, self[uid]["user_specific"][k])
