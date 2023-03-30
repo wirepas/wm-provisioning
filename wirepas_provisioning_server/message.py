@@ -30,6 +30,7 @@ class ProvisioningMethod(IntEnum):
 
     UNSECURED = 0
     SECURED = 1
+    EXTENDED = 3
 
 
 class ProvisioningNackReason(IntEnum):
@@ -352,6 +353,32 @@ class ProvisioningMessageNACK(ProvisioningMessage):
             sink_id=message.sink_id,
             tx_time=message.rx_time_ms_epoch - message.travel_time_ms,
         )
+
+
+class ProvisioningExtendedUID:
+    def __init__(
+            self,
+            authenticator_uid_type,
+            authenticator_uid,
+            node_uid_type,
+            node_uid
+    ):
+        self.authenticator_uid_type = authenticator_uid_type
+        self.authenticator_uid = authenticator_uid
+        self.node_uid_type = node_uid_type
+        self.node_uid = node_uid
+
+    @property
+    def payload(self):
+        return b"".join([
+            self.authenticator_uid_type.to_bytes(1, "big"),
+            self.authenticator_uid,
+            self.node_uid_type.to_bytes(1, "big"),
+            self.node_uid
+        ])
+
+    def __str__(self):
+        return self.payload.hex()
 
 
 class ProvisioningMessageFactory(object):
