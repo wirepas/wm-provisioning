@@ -19,37 +19,7 @@ def _generate_extended_uid(authenticator_uid_type,
                            node_uid_type,
                            node_uid) -> bytes:
     """
-    Generate an extended UID bytearray
-    """
-
-    authenticator_uid_type = _convert_to_bytes(authenticator_uid_type)
-    authenticator_uid = _convert_to_bytes(authenticator_uid)
-    node_uid_type = _convert_to_bytes(node_uid_type)
-    node_uid = _convert_to_bytes(node_uid)
-
-    def _any_is_not_bytes(*args):
-        return any(not isinstance(arg, bytes) for arg in args)
-
-    if _any_is_not_bytes(authenticator_uid_type, authenticator_uid, node_uid_type, node_uid):
-        raise ValueError("Parameters must be convertible to bytes")
-
-    if any(len(arg) != 1 for arg in [authenticator_uid_type, node_uid_type]):
-        raise ValueError("UID type must be 1 byte")
-
-    return b"".join([
-        authenticator_uid_type,
-        authenticator_uid,
-        node_uid_type,
-        node_uid
-    ])
-
-
-def _generate_extended_uid(authenticator_uid_type,
-                           authenticator_uid,
-                           node_uid_type,
-                           node_uid) -> bytes:
-    """
-    Generate an extended UID bytearray
+    Generate extended UID bytes
     """
 
     authenticator_uid_type = _convert_to_bytes(authenticator_uid_type)
