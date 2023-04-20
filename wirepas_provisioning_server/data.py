@@ -14,6 +14,36 @@ import logging
 from wirepas_provisioning_server.message import ProvisioningExtendedUID, ProvisioningMethod
 
 
+def _generate_extended_uid(authenticator_uid_type,
+                           authenticator_uid,
+                           node_uid_type,
+                           node_uid) -> bytes:
+    """
+    Generate an extended UID bytearray
+    """
+
+    authenticator_uid_type = _convert_to_bytes(authenticator_uid_type)
+    authenticator_uid = _convert_to_bytes(authenticator_uid)
+    node_uid_type = _convert_to_bytes(node_uid_type)
+    node_uid = _convert_to_bytes(node_uid)
+
+    def _any_is_not_bytes(*args):
+        return any(not isinstance(arg, bytes) for arg in args)
+
+    if _any_is_not_bytes(authenticator_uid_type, authenticator_uid, node_uid_type, node_uid):
+        raise ValueError("Parameters must be convertible to bytes")
+
+    if any(len(arg) != 1 for arg in [authenticator_uid_type, node_uid_type]):
+        raise ValueError("UID type must be 1 byte")
+
+    return b"".join([
+        authenticator_uid_type,
+        authenticator_uid,
+        node_uid_type,
+        node_uid
+    ])
+
+
 def _convert_to_bytes(param):
     if isinstance(param, str):
         if param.upper().startswith("0X"):
@@ -22,7 +52,7 @@ def _convert_to_bytes(param):
         else:
             param = bytes(param, "utf-8")
     elif isinstance(param, int):
-        param.to_bytes((param.bit_length() + 7) // 8, byteorder="big")
+        param = param.to_bytes(max(1, (param.bit_length() + 7)) // 8, byteorder="big")
 
     return param
 
@@ -57,23 +87,21 @@ class ProvisioningData(dict):
                 if "method" not in cfg[node].keys():
                     raise ProvisioningDataException("Invalid data config file. %s must include method.".format(node))
 
-                if cfg[node]["method"] not in [ProvisioningMethod.UNSECURED,
-                                    ProvisioningMethod.SECURED,
-                                    ProvisioningMethod.EXTENDED]:
-                    raise ProvisioningDataException("Method must be {}, {} or {}.".format(ProvisioningMethod.UNSECURED,
-                                                                                          ProvisioningMethod.SECURED,
-                                                                                          ProvisioningMethod.EXTENDED))
+                provision_methods = [e.value for e in ProvisioningMethod]
+                if cfg[node]["method"] not in provision_methods:
+                    raise ProvisioningDataException("Method must be one of {}".format(provision_methods))
 
                 if "uid" in cfg[node].keys():
                     uid = cfg[node]["uid"]
                 elif cfg[node]["method"] == ProvisioningMethod.EXTENDED:
                     try:
-                        uid = ProvisioningExtendedUID(
-                            _convert_to_bytes(cfg[node]["authenticator_uid_type"]),
-                            _convert_to_bytes(cfg[node]["authenticator_uid"]),
-                            _convert_to_bytes(cfg[node]["node_uid_type"]),
-                            _convert_to_bytes(cfg[node]["node_uid"]),
-                        ).payload
+                        uid = _generate_extended_uid(
+                            cfg[node]["authenticator_uid_type"],
+                            cfg[node]["authenticator_uid"],
+                            cfg[node]["node_uid_type"],
+                            cfg[node]["node_uid"]
+                        )
+
                     except KeyError:
                         raise ProvisioningDataException("Invalid data config file. %s must include UID information."
                                                         .format(node))
