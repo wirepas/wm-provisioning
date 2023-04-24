@@ -30,6 +30,7 @@ class ProvisioningMethod(IntEnum):
 
     UNSECURED = 0
     SECURED = 1
+    EXTENDED = 3
 
 
 class ProvisioningNackReason(IntEnum):
