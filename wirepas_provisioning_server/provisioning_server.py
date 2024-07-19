@@ -7,10 +7,12 @@ import time
 import os
 import argparse
 import logging
-import threading
+
+from typing import Any, Optional
 
 from wirepas_mqtt_library import WirepasNetworkInterface
 from wirepas_mesh_messaging import GatewayResultCode
+from wirepas_mesh_messaging.received_data import ReceivedDataEvent
 
 from wirepas_provisioning_server.session import ProvisioningSession, ProvisioningStatus
 from wirepas_provisioning_server.message import ProvisioningMessageFactory, ProvisioningMessageException
@@ -18,7 +20,7 @@ from wirepas_provisioning_server.data import ProvisioningData
 from wirepas_provisioning_server.events import ProvisioningEventPacketReceived
 
 
-def get_default_value_from_env(env_var_name, default=None):
+def get_default_value_from_env(env_var_name: str, default: Optional[bool | int | str]=None) -> Optional[bool | int | str]:
     value = os.environ.get(env_var_name, default)
     if value is not None and value == "":
         return None
@@ -29,23 +31,22 @@ def get_default_value_from_env(env_var_name, default=None):
 class ProvisioningServer():
     def __init__(
         self,
-        interface,
-        settings,
+        interface: WirepasNetworkInterface,
+        settings: str,
     ):
         self.interface = interface
-        self.sessions = {}
+        self.sessions: dict[tuple[Optional[int], bytes, int], ProvisioningSession] = {}
         self.data = ProvisioningData(settings)
 
         # Register for packets on Provisioning Endpoints [246:255]
         interface.register_data_cb(self.on_data_received, src_ep=246, dst_ep=255)
 
 
-    def on_session_finish(self, key, status):
+    def on_session_finish(self, key: tuple[int, bytes, int], status: ProvisioningStatus) -> None:
         logging.info("Provisioning Session %s terminated with result: %s.", self.sessions[key], status)
         del self.sessions[key]
-        return
 
-    def on_data_received(self, data):
+    def on_data_received(self, data: ReceivedDataEvent) -> None:
         try:
             msg_data = ProvisioningMessageFactory.map(data)
         except ProvisioningMessageException as e:
@@ -67,7 +68,7 @@ class ProvisioningServer():
             )
             self.sessions[msg_data.msg_id].event_q.put(ev)
 
-    def loop(self, sleep_for=2):
+    def loop(self, sleep_for: float=2) -> None:
         """
         Server loop
 
@@ -80,16 +81,25 @@ class ProvisioningServer():
 
         logging.info("Stopping Provisioning Server.")
 
-    def send_packet(self, gw_id, sink_id, dest, src_ep, dst_ep, qos, payload):
+    def send_packet(
+            self,
+            gw_id: str,
+            sink_id: str,
+            dest: int,
+            src_ep: int,
+            dst_ep: int,
+            qos: int,
+            payload: bytes,
+        ) -> Optional[GatewayResultCode]:
         logging.debug("Sending packet (%s).", payload)
         try:
-            return self.interface.send_message(gw_id, sink_id, dest, src_ep, dst_ep, qos, payload)
+            return self.interface.send_message(gw_id, sink_id, dest, src_ep, dst_ep, payload, qos)
         except TimeoutError:
             logging.warning("Sending packet failed with timeout exception.")
             return GatewayResultCode.GW_RES_INTERNAL_ERROR
 
 
-def main():
+def main() -> None:
     """
         Main service for provisioning server
     """
