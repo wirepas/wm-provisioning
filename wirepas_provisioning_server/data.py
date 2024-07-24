@@ -16,10 +16,12 @@ from typing import Optional
 from wirepas_provisioning_server.message import ProvisioningMethod
 
 
-def _generate_extended_uid(authenticator_uid_type_raw: str | int,
-                           authenticator_uid_raw: str | int,
-                           node_uid_type_raw: str | int,
-                           node_uid_raw: str | int) -> bytes:
+def _generate_extended_uid(
+    authenticator_uid_type_raw: str | int,
+    authenticator_uid_raw: str | int,
+    node_uid_type_raw: str | int,
+    node_uid_raw: str | int,
+) -> bytes:
     """
     Generate extended UID bytes
     """
@@ -38,15 +40,10 @@ def _generate_extended_uid(authenticator_uid_type_raw: str | int,
     if any(len(arg) != 1 for arg in [authenticator_uid_type, node_uid_type]):
         raise ValueError("UID type must be 1 byte")
 
-    return b"".join([
-        authenticator_uid_type,
-        authenticator_uid,
-        node_uid_type,
-        node_uid
-    ])
+    return b"".join([authenticator_uid_type, authenticator_uid, node_uid_type, node_uid])
 
 
-def _convert_to_bytes(param_raw: bytes | int | str ) -> bytes:
+def _convert_to_bytes(param_raw: bytes | int | str) -> bytes:
     if isinstance(param_raw, str):
         if param_raw.upper().startswith("0X"):
             param_raw = param_raw.upper().replace("0X", "")
@@ -75,7 +72,7 @@ class ProvisioningDataException(Exception):
 
 
 class ProvisioningData(dict):
-    def __init__(self, config: Optional[str]=None):
+    def __init__(self, config: Optional[str] = None):
 
         super(ProvisioningData, self).__init__()
 
@@ -96,14 +93,14 @@ class ProvisioningData(dict):
                     raise ProvisioningDataException(f"Method must be one of {provision_methods}")
 
                 if "uid" in cfg[node].keys():
-                    uid : str | int | bytes = cfg[node]["uid"]
+                    uid: str | int | bytes = cfg[node]["uid"]
                 elif cfg[node]["method"] == ProvisioningMethod.EXTENDED:
                     try:
                         uid = _generate_extended_uid(
                             cfg[node]["authenticator_uid_type"],
                             cfg[node]["authenticator_uid"],
                             cfg[node]["node_uid_type"],
-                            cfg[node]["node_uid"]
+                            cfg[node]["node_uid"],
                         )
 
                     except KeyError:
@@ -150,7 +147,6 @@ class ProvisioningData(dict):
                 if "authentication_key" not in cfg[node].keys():
                     raise ProvisioningDataException(f"Invalid data config file. {node} must include authentication_key.")
 
-
                 self.append(
                     _convert_to_bytes(uid),
                     cfg[node]["method"],
@@ -172,10 +168,10 @@ class ProvisioningData(dict):
         authentication_key: bytes,
         network_address: Optional[int],
         network_channel: Optional[int],
-        node_id: Optional[int]=None,
-        node_role: Optional[bytes]=None,
-        user_specific: Optional[dict[int, bytes | str]]=None,
-        factory_key: Optional[bytes]=None,
+        node_id: Optional[int] = None,
+        node_role: Optional[bytes] = None,
+        user_specific: Optional[dict[int, bytes | str]] = None,
+        factory_key: Optional[bytes] = None,
     ) -> None:
 
         # TODO : parameter checks

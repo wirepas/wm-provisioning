@@ -35,14 +35,14 @@ from .message import (
 
 
 class ProvisioningStates(enum.Enum):
-    """ Provisioning states """
+    """Provisioning states"""
 
     IDLE = 0
     WAIT_RESPONSE = 2
 
 
 class ProvisioningStatus(enum.Enum):
-    """ Provisioning status """
+    """Provisioning status"""
 
     ONGOING = 0
     SUCCESS = 1
@@ -64,8 +64,8 @@ class ProvisioningSession(threading.Thread):
         session_id: tuple[Optional[int], bytes, int],
         data: ProvisioningData,
         on_session_finish: Callable,
-        retry: int=1,
-        timeout: int =180
+        retry: int = 1,
+        timeout: int = 180,
     ):
         super(ProvisioningSession, self).__init__()
 
@@ -76,7 +76,7 @@ class ProvisioningSession(threading.Thread):
         self.timeout = timeout
         self.finish_cb = on_session_finish
 
-        self.event_q : queue.Queue[ProvisioningEvent] = queue.Queue()
+        self.event_q: queue.Queue[ProvisioningEvent] = queue.Queue()
 
         self.counter = random.getrandbits(16)
 
@@ -85,7 +85,7 @@ class ProvisioningSession(threading.Thread):
         self._timer: Optional[threading.Timer] = None
 
         self.sink_id: Optional[int] = None
-        self.gw_id: Optional[int]  = None
+        self.gw_id: Optional[int] = None
         self._tx_time: int = 0
 
         self.daemon = True
@@ -126,13 +126,9 @@ class ProvisioningSession(threading.Thread):
     def _send_packet(self, payload: bytes) -> GatewayResultCode:
         logging.debug("  - Sending packet (%s).", payload)
         try:
-            return self.send_func(gw_id=self.gw_id,
-                                  sink_id=self.sink_id,
-                                  dest=self.session_id[0],
-                                  src_ep=255,
-                                  dst_ep=246,
-                                  qos=1,
-                                  payload=payload)
+            return self.send_func(
+                gw_id=self.gw_id, sink_id=self.sink_id, dest=self.session_id[0], src_ep=255, dst_ep=246, qos=1, payload=payload
+            )
         except TimeoutError:
             logging.warning("  - Sending packet failed with timeout exception.")
             return GatewayResultCode.GW_RES_INTERNAL_ERROR
@@ -148,9 +144,7 @@ class ProvisioningSession(threading.Thread):
         logging.debug("   - Counter : %s", str(self.counter))
 
         # Authenticate Header + Payload
-        to_auth = ProvisioningMessageDATA(self.session_id[1],
-                                          self.session_id[2],
-                                          self.counter, plain_text).payload
+        to_auth = ProvisioningMessageDATA(self.session_id[1], self.session_id[2], self.counter, plain_text).payload
 
         # Create a CMAC / OMAC1 object.
         cobj = CMAC.new(auth_key, ciphermod=AES)
@@ -162,7 +156,7 @@ class ProvisioningSession(threading.Thread):
         # Encrypt payload + mic
         # Generate Initial Counter Block (ICB).
         ctr_bytes = self.counter + int.from_bytes(iv, byteorder="little", signed=False)
-        ctr_bytes = ctr_bytes % (2 ** 128)
+        ctr_bytes = ctr_bytes % (2**128)
         icb = ctr_bytes.to_bytes(16, byteorder="little")
 
         logging.debug("   -  ICB: %s", "".join("{:02X}".format(x) + " " for x in icb))
@@ -183,7 +177,7 @@ class ProvisioningSession(threading.Thread):
     def _process_start(self, msg: ProvisioningMessageSTART) -> None:
         # This is a START packet
 
-        if (msg.uid in self.data.keys() and self.data[msg.uid]["method"] == msg.method):
+        if msg.uid in self.data.keys() and self.data[msg.uid]["method"] == msg.method:
             logging.info("  - Sending Provisioning DATA for UID(%s).", msg.uid.hex())
 
             data_bytes = self.data.getCbor(msg.uid)
@@ -257,7 +251,7 @@ class ProvisioningSession(threading.Thread):
     def _state_idle(self, event: ProvisioningEventPacketReceived) -> None:
         logging.info("%s State IDLE:", str(self))
 
-        if (event.type == "packet_rxd" and event.msg.msg_type == ProvisioningMessageTypes.START):
+        if event.type == "packet_rxd" and event.msg.msg_type == ProvisioningMessageTypes.START:
             logging.info("  - Received START packet.")
             self._update_origin(event.msg)
             # Ignore type warning as we already checked the message type

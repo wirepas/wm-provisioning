@@ -20,7 +20,7 @@ class ProvisioningMessageException(Exception):
 
 
 class ProvisioningMessageTypes(IntEnum):
-    """ Provisioning message types """
+    """Provisioning message types"""
 
     START = 1
     DATA = 2
@@ -29,7 +29,7 @@ class ProvisioningMessageTypes(IntEnum):
 
 
 class ProvisioningMethod(IntEnum):
-    """ Provisioning methods """
+    """Provisioning methods"""
 
     UNSECURED = 0
     SECURED = 1
@@ -37,7 +37,7 @@ class ProvisioningMethod(IntEnum):
 
 
 class ProvisioningNackReason(IntEnum):
-    """ Provisioning nack reason """
+    """Provisioning nack reason"""
 
     NOT_AUTHORIZED = 0
     METHOD_NOT_SUPPORTED = 1
@@ -51,10 +51,10 @@ class ProvisioningMessage:
         msg_type: int,
         node_address: bytes,
         session_id: int,
-        source_address: Optional[int]=None,
-        gw_id: Optional[int]=None,
-        sink_id: Optional[int]=None,
-        tx_time: Optional[int]=None,
+        source_address: Optional[int] = None,
+        gw_id: Optional[int] = None,
+        sink_id: Optional[int] = None,
+        tx_time: Optional[int] = None,
     ) -> None:
 
         try:
@@ -85,11 +85,11 @@ class ProvisioningMessage:
 
     @property
     def payload(self) -> bytes:
-        """ Implement how to serialize child Event classes """
+        """Implement how to serialize child Event classes"""
         return b"".join([bytes([self.msg_type]), self.node_address, bytes([self.session_id])])
 
     @classmethod
-    def from_message(cls, message: ReceivedDataEvent) -> 'ProvisioningMessage':
+    def from_message(cls, message: ReceivedDataEvent) -> "ProvisioningMessage":
         raise NotImplementedError()
 
 
@@ -101,10 +101,10 @@ class ProvisioningMessageSTART(ProvisioningMessage):
         method: int,
         iv: bytes,
         uid: bytes,
-        source_address: Optional[int]=None,
-        gw_id: Optional[int]=None,
-        sink_id: Optional[int]=None,
-        tx_time: Optional[int]=None,
+        source_address: Optional[int] = None,
+        gw_id: Optional[int] = None,
+        sink_id: Optional[int] = None,
+        tx_time: Optional[int] = None,
     ) -> None:
 
         try:
@@ -133,11 +133,11 @@ class ProvisioningMessageSTART(ProvisioningMessage):
 
     @property
     def payload(self) -> bytes:
-        """ Implement how to serialize child Event classes """
+        """Implement how to serialize child Event classes"""
         return b"".join([super().payload, bytes([self.method]), self.iv, self.uid])
 
     @classmethod
-    def from_message(cls, message: ReceivedDataEvent) -> 'ProvisioningMessageSTART':
+    def from_message(cls, message: ReceivedDataEvent) -> "ProvisioningMessageSTART":
         # TODO check data_payload min/max length
 
         if message.data_payload is None:
@@ -176,12 +176,12 @@ class ProvisioningMessageDATA(ProvisioningMessage):
         session_id: int,
         counter: int,
         data: bytes,
-        key_index: int=1,  # Only factory key is supported.
-        mic: bytes=bytes(),
-        source_address: Optional[int]=None,
-        gw_id: Optional[int]=None,
-        sink_id: Optional[int]=None,
-        tx_time: Optional[int]=None,
+        key_index: int = 1,  # Only factory key is supported.
+        mic: bytes = bytes(),
+        source_address: Optional[int] = None,
+        gw_id: Optional[int] = None,
+        sink_id: Optional[int] = None,
+        tx_time: Optional[int] = None,
     ):
 
         self.key_index = key_index
@@ -190,9 +190,7 @@ class ProvisioningMessageDATA(ProvisioningMessage):
         if len(data) > 0:
             self.data = data
         else:
-            raise ProvisioningMessageException(
-                "Provisioning data length too small."
-            )
+            raise ProvisioningMessageException("Provisioning data length too small.")
 
         if len(mic) == 0 or len(mic) == 5:
             self.mic = mic
@@ -211,7 +209,7 @@ class ProvisioningMessageDATA(ProvisioningMessage):
 
     @property
     def payload(self) -> bytes:
-        """ Implement how to serialize child Event classes """
+        """Implement how to serialize child Event classes"""
         return b"".join(
             [
                 super().payload,
@@ -223,10 +221,10 @@ class ProvisioningMessageDATA(ProvisioningMessage):
         )
 
     @classmethod
-    def from_message(cls, message: ReceivedDataEvent) -> 'ProvisioningMessageDATA':
+    def from_message(cls, message: ReceivedDataEvent) -> "ProvisioningMessageDATA":
         if message.data_payload is None:
             raise ValueError("Message payload should not be None.")
-        
+
         try:
             msg_type = ProvisioningMessageTypes(message.data_payload[0])
 
@@ -236,9 +234,7 @@ class ProvisioningMessageDATA(ProvisioningMessage):
         except ValueError:
             raise ProvisioningMessageException("Message type is invalid.")
 
-        counter = int.from_bytes(
-            message.payload[7:9], byteorder="little", signed=True
-        )
+        counter = int.from_bytes(message.payload[7:9], byteorder="little", signed=True)
 
         return cls(
             node_address=message.data_payload[1:5],
@@ -259,10 +255,10 @@ class ProvisioningMessageDATA_ACK(ProvisioningMessage):
         self,
         node_address: bytes,
         session_id: int,
-        source_address: Optional[int]=None,
-        gw_id: Optional[int]=None,
-        sink_id: Optional[int]=None,
-        tx_time: Optional[int]=None,
+        source_address: Optional[int] = None,
+        gw_id: Optional[int] = None,
+        sink_id: Optional[int] = None,
+        tx_time: Optional[int] = None,
     ):
 
         super(ProvisioningMessageDATA_ACK, self).__init__(
@@ -277,14 +273,14 @@ class ProvisioningMessageDATA_ACK(ProvisioningMessage):
 
     @property
     def payload(self) -> bytes:
-        """ Implement how to serialize child Event classes """
+        """Implement how to serialize child Event classes"""
         return super().payload
 
     @classmethod
-    def from_message(cls, message: ReceivedDataEvent) -> 'ProvisioningMessageDATA_ACK':
+    def from_message(cls, message: ReceivedDataEvent) -> "ProvisioningMessageDATA_ACK":
         if message.data_payload is None:
             raise ValueError("Message payload should not be None.")
-        
+
         try:
             msg_type = ProvisioningMessageTypes(message.data_payload[0])
 
@@ -309,18 +305,16 @@ class ProvisioningMessageNACK(ProvisioningMessage):
         node_address: bytes,
         session_id: int,
         reason: int,
-        source_address: Optional[int]=None,
-        gw_id: Optional[int]=None,
-        sink_id: Optional[int]=None,
-        tx_time: Optional[int]=None,
+        source_address: Optional[int] = None,
+        gw_id: Optional[int] = None,
+        sink_id: Optional[int] = None,
+        tx_time: Optional[int] = None,
     ):
 
         try:
             self.reason = ProvisioningNackReason(reason)
         except ValueError:
-            raise ProvisioningMessageException(
-                "Provisioning NACK reason is invalid."
-            )
+            raise ProvisioningMessageException("Provisioning NACK reason is invalid.")
 
         super(ProvisioningMessageNACK, self).__init__(
             msg_type=ProvisioningMessageTypes.NACK,
@@ -334,14 +328,14 @@ class ProvisioningMessageNACK(ProvisioningMessage):
 
     @property
     def payload(self) -> bytes:
-        """ Implement how to serialize child Event classes """
+        """Implement how to serialize child Event classes"""
         return b"".join([super().payload, bytes([self.reason])])
 
     @classmethod
-    def from_message(cls, message: ReceivedDataEvent) -> 'ProvisioningMessageNACK':
+    def from_message(cls, message: ReceivedDataEvent) -> "ProvisioningMessageNACK":
         if message.data_payload is None:
             raise ValueError("Message payload should not be None.")
-        
+
         try:
             msg_type = ProvisioningMessageTypes(message.data_payload[0])
 
@@ -354,9 +348,7 @@ class ProvisioningMessageNACK(ProvisioningMessage):
         try:
             reason = ProvisioningNackReason(message.data_payload[6])
         except ValueError:
-            raise ProvisioningMessageException(
-                "Provisioning nack reason is invalid."
-            )
+            raise ProvisioningMessageException("Provisioning nack reason is invalid.")
 
         return cls(
             node_address=message.data_payload[1:5],
@@ -374,7 +366,8 @@ class ProvisioningMessageFactory(object):
     MessageManager
 
     """
-    _type : dict[int, Type[ProvisioningMessage]] = dict()
+
+    _type: dict[int, Type[ProvisioningMessage]] = dict()
     _type[ProvisioningMessageTypes.START] = ProvisioningMessageSTART
     _type[ProvisioningMessageTypes.DATA] = ProvisioningMessageDATA
     _type[ProvisioningMessageTypes.DATA_ACK] = ProvisioningMessageDATA_ACK
