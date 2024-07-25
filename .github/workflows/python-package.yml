@@ -50,15 +50,9 @@ jobs:
     - name: Check typing with mypy
       run: mypy wirepas_provisioning_server/
 
-    - name: Get short sha
-      uses: benjlevesque/short-sha@v1.2
-      id: short-sha
-      with:
-        length: 6
-
     - name: Set Version for master push
       if: ${{ github.event_name == 'push' }}
-      run: echo "VERSION=${{ steps.short-sha.outputs.sha }}" >> $GITHUB_ENV
+      run: echo "VERSION=v0.0.dev0" >> $GITHUB_ENV
 
     - name: Set Version for release
       if: ${{ github.event_name == 'release' }}
