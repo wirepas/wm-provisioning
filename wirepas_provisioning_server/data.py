@@ -72,6 +72,7 @@ class ProvisioningDataException(Exception):
 
 
 class ProvisioningData(dict):
+    # flake8: noqa: C901
     def __init__(self, config: Optional[str] = None):
 
         super(ProvisioningData, self).__init__()

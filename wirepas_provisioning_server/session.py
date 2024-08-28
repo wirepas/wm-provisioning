@@ -174,6 +174,7 @@ class ProvisioningSession(threading.Thread):
 
         return plain_text
 
+    # flake8: noqa: C901
     def _process_start(self, msg: ProvisioningMessageSTART) -> None:
         # This is a START packet
 

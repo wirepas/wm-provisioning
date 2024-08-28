@@ -381,6 +381,7 @@ class ProvisioningMessageFactory(object):
     def map(message: ReceivedDataEvent) -> ProvisioningMessage:
         try:
             # Disable Pylance "reportOptionalSubscript" as "message.data_payload == None" is covered by the TypeError exception
+            # flake8: noqa: E501
             return ProvisioningMessageFactory._type[ProvisioningMessageTypes(message.data_payload[0])].from_message(message)  # type: ignore[unused-ignore, reportOptionalSubscript]
         except (KeyError, TypeError, ValueError):
             raise ProvisioningMessageException("Not a provisioning message.")
