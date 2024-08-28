@@ -11,9 +11,11 @@ import cbor2
 import yaml
 import logging
 
-from typing import Optional
+from typing import Final, Optional
 
+from wirepas_provisioning_server.helpers import convert_to_bytes, convert_to_int, ProvisioningDataException
 from wirepas_provisioning_server.message import ProvisioningMethod
+from wirepas_provisioning_server.migrate_config import ConfigFileMigration
 
 
 def _generate_extended_uid(
@@ -26,10 +28,10 @@ def _generate_extended_uid(
     Generate extended UID bytes
     """
 
-    authenticator_uid_type = _convert_to_bytes(authenticator_uid_type_raw)
-    authenticator_uid = _convert_to_bytes(authenticator_uid_raw)
-    node_uid_type = _convert_to_bytes(node_uid_type_raw)
-    node_uid = _convert_to_bytes(node_uid_raw)
+    authenticator_uid_type = convert_to_bytes(authenticator_uid_type_raw)
+    authenticator_uid = convert_to_bytes(authenticator_uid_raw)
+    node_uid_type = convert_to_bytes(node_uid_type_raw)
+    node_uid = convert_to_bytes(node_uid_raw)
 
     def _any_is_not_bytes(*args: bytes | list[bytes]) -> bool:
         return any(not isinstance(arg, bytes) for arg in args)
@@ -43,34 +45,6 @@ def _generate_extended_uid(
     return b"".join([authenticator_uid_type, authenticator_uid, node_uid_type, node_uid])
 
 
-def _convert_to_bytes(param_raw: bytes | int | str) -> bytes:
-    if isinstance(param_raw, str):
-        if param_raw.upper().startswith("0X"):
-            param_raw = param_raw.upper().replace("0X", "")
-            param = bytes.fromhex(param_raw)
-        else:
-            param = bytes(param_raw, "utf-8")
-    elif isinstance(param_raw, int):
-        param = param_raw.to_bytes(max(1, (param_raw.bit_length() + 7)) // 8, byteorder="big")
-    else:
-        param = param_raw
-
-    return param
-
-
-def _convert_to_int(param: int | str) -> int:
-    if isinstance(param, str):
-        param = int(param, 0)
-
-    return param
-
-
-class ProvisioningDataException(Exception):
-    """
-    Wirepas Provisioning data generic Exception
-    """
-
-
 class ProvisioningData(dict):
     # flake8: noqa: C901
     def __init__(self, config: Optional[str] = None):
@@ -78,81 +52,99 @@ class ProvisioningData(dict):
         super(ProvisioningData, self).__init__()
 
         if config is not None:
+            migration = ConfigFileMigration(config)
+            migration.update()
+            del migration
+
             try:
                 with open(config, "r") as ymlfile:
                     cfg = yaml.safe_load(ymlfile)
             except yaml.YAMLError:
                 raise ProvisioningDataException("Invalid data config file.")
 
-            for node in cfg:
+            if cfg.get("version") != 1:
+                raise ProvisioningDataException("Invalid data config file. Version must be 1")
 
-                if "method" not in cfg[node].keys():
-                    raise ProvisioningDataException(f"Invalid data config file. {node} must include method.")
+            # Validate network parameters
+            for name, network in cfg["networks"].items():
+                try:
+                    for parameter in [
+                        "authentication_key",
+                        "encryption_key",
+                    ]:
+                        network[parameter]
+                except KeyError as e:
+                    raise ProvisioningDataException(f"Invalid data config file. Network {name} must include {str(e)}.")
+
+            for node_name, node_cfg in cfg["nodes"].items():
+                if "network" not in node_cfg.keys():
+                    raise ProvisioningDataException(f"Invalid data config file. Node {node_name} must include network.")
+                network_name = node_cfg["network"]
+
+                if "method" not in node_cfg.keys():
+                    raise ProvisioningDataException(f"Invalid data config file. Node {node_name} must include method.")
 
                 provision_methods = [e.value for e in ProvisioningMethod]
-                if cfg[node]["method"] not in provision_methods:
-                    raise ProvisioningDataException(f"Method must be one of {provision_methods}")
+                if node_cfg["method"] not in provision_methods:
+                    raise ProvisioningDataException(f"Node method must be one of {provision_methods}")
 
-                if "uid" in cfg[node].keys():
-                    uid: str | int | bytes = cfg[node]["uid"]
-                elif cfg[node]["method"] == ProvisioningMethod.EXTENDED:
+                if "uid" in node_cfg.keys():
+                    uid: str | int | bytes = node_cfg["uid"]
+                elif node_cfg["method"] == ProvisioningMethod.EXTENDED:
                     try:
                         uid = _generate_extended_uid(
-                            cfg[node]["authenticator_uid_type"],
-                            cfg[node]["authenticator_uid"],
-                            cfg[node]["node_uid_type"],
-                            cfg[node]["node_uid"],
+                            node_cfg["authenticator_uid_type"],
+                            node_cfg["authenticator_uid"],
+                            node_cfg["node_uid_type"],
+                            node_cfg["node_uid"],
                         )
 
                     except KeyError:
-                        raise ProvisioningDataException(f"Invalid data config file. {node} must include UID information.")
+                        raise ProvisioningDataException(
+                            f"Invalid data config file. Node {node_name} must include UID information."
+                        )
                 else:
-                    raise ProvisioningDataException(f"Invalid data config file. {node} must include UID information")
+                    raise ProvisioningDataException(f"Invalid data config file. Node {node_name} must include UID information")
 
-                if "network_address" in cfg[node].keys():
-                    network_address = _convert_to_int(cfg[node]["network_address"])
+                if "network_address" in node_cfg.keys():
+                    network_address = convert_to_int(cfg["networks"][network_name]["address"])
                 else:
                     network_address = None
 
-                if "network_channel" in cfg[node].keys():
-                    network_channel = _convert_to_int(cfg[node]["network_channel"])
+                if "network_channel" in node_cfg.keys():
+                    network_channel = convert_to_int(cfg["networks"][network_name]["channel"])
                 else:
                     network_channel = None
 
-                if "node_id" in cfg[node].keys():
-                    node_id = _convert_to_int(cfg[node]["node_id"])
+                if "node_id" in node_cfg.keys():
+                    node_id = convert_to_int(node_cfg["node_id"])
                 else:
                     node_id = None
 
-                if "node_role" in cfg[node].keys():
-                    node_role = _convert_to_bytes(cfg[node]["node_role"])
+                if "node_role" in node_cfg.keys():
+                    node_role = convert_to_bytes(node_cfg["node_role"])
                 else:
                     node_role = None
 
-                if "user_specific" in cfg[node].keys():
+                if "user_specific" in node_cfg.keys():
                     user_specific = dict()
-                    for k in cfg[node]["user_specific"]:
+                    for k in node_cfg["user_specific"]:
                         if k < 128 or k > 255:
                             raise KeyError
-                        user_specific[k] = cfg[node]["user_specific"][k]
+                        user_specific[k] = node_cfg["user_specific"][k]
                 else:
                     user_specific = None
 
-                if "factory_key" in cfg[node].keys():
-                    factory_key = _convert_to_bytes(cfg[node]["factory_key"])
+                if "factory_key" in node_cfg.keys():
+                    factory_key = convert_to_bytes(node_cfg["factory_key"])
                 else:
                     factory_key = None
 
-                if "encryption_key" not in cfg[node].keys():
-                    raise ProvisioningDataException(f"Invalid data config file. {node} must include encryption_key.")
-                if "authentication_key" not in cfg[node].keys():
-                    raise ProvisioningDataException(f"Invalid data config file. {node} must include authentication_key.")
-
                 self.append(
-                    _convert_to_bytes(uid),
-                    cfg[node]["method"],
-                    _convert_to_bytes(cfg[node]["encryption_key"]),
-                    _convert_to_bytes(cfg[node]["authentication_key"]),
+                    convert_to_bytes(uid),
+                    node_cfg["method"],
+                    convert_to_bytes(cfg["networks"][network_name]["encryption_key"]),
+                    convert_to_bytes(cfg["networks"][network_name]["authentication_key"]),
                     network_address,
                     network_channel,
                     node_id=node_id,
