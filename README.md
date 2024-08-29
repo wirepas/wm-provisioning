@@ -2,7 +2,7 @@
 
 ## Introduction
 
-This is the reference implemantation of the Wirepas provisioning server. It provides an example of the server side of Wirepas
+This is the reference implementation of the Wirepas provisioning server. It provides an example of the server side of Wirepas
 Provisioning Protocol. It must be used with the _provisioning_joining_node_ application of the SDK. Please refer to the
 provisioning reference manual for further information.
 
@@ -12,7 +12,7 @@ provisioning reference manual for further information.
 
 The main requirements of Provisioning Server are:
 
--   Python 3.7
+-   Python 3.12
 -   Pip3 (we recommend the latest available)
 
 ### Installing from PyPi
