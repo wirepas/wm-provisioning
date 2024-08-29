@@ -21,12 +21,12 @@ with open(readme_file) as f:
 
 
 def get_absolute_path(*args):
-    """ Transform relative pathnames into absolute pathnames """
+    """Transform relative pathnames into absolute pathnames"""
     return os.path.join(here, *args)
 
 
 def get_requirements(*args):
-    """ Get requirements requirements.txt """
+    """Get requirements requirements.txt"""
     requirements = set()
     with open(get_absolute_path(*args)) as handle:
         for line in handle:
@@ -56,17 +56,17 @@ setup(
     keywords=about["__keywords__"],
     packages=find_packages(exclude=["contrib", "docs", "tests", "examples"]),
     install_requires=get_requirements("requirements.txt"),
-    python_requires=">=3.7",
+    python_requires=">=3.12",
     include_package_data=True,
     data_files=[
         (
             "./wirepas_provisioning-extras/package",
-            [readme_file, license_file, "requirements.txt", "setup.py"]
+            [readme_file, license_file, "requirements.txt", "setup.py"],
         )
     ],
     entry_points={
         "console_scripts": [
             "wm-prov-srv=wirepas_provisioning_server.provisioning_server:main",
         ]
-    }
+    },
 )

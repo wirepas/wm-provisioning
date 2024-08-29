@@ -1,10 +1,9 @@
-FROM alpine:3.12 AS builder
+FROM alpine:3.20 AS builder
 
 RUN adduser --disabled-password wirepas
 
 # Install needed software
-RUN apk add --no-cache gcc make musl-dev python3-dev py3-pip
-RUN python3 -m pip install wheel setuptools
+RUN apk add --no-cache gcc make musl-dev python3-dev py3-pip py3-wheel py3-setuptools
 RUN apk add --no-cache bash
 
 # Copy provisioning server files
@@ -21,9 +20,9 @@ RUN python3 setup.py sdist bdist_wheel
 USER wirepas
 
 # Install wheel
-RUN pip3 install dist/wirepas_provisioning*.whl --user
+RUN pip3 install dist/wirepas_provisioning*.whl --user --break-system-packages
 
-FROM alpine:3.12
+FROM alpine:3.20
 
 RUN adduser --disabled-password wirepas
 

@@ -11,23 +11,27 @@ import cbor2
 import yaml
 import logging
 
+from typing import Optional
+
 from wirepas_provisioning_server.message import ProvisioningMethod
 
 
-def _generate_extended_uid(authenticator_uid_type,
-                           authenticator_uid,
-                           node_uid_type,
-                           node_uid) -> bytes:
+def _generate_extended_uid(
+    authenticator_uid_type_raw: str | int,
+    authenticator_uid_raw: str | int,
+    node_uid_type_raw: str | int,
+    node_uid_raw: str | int,
+) -> bytes:
     """
     Generate extended UID bytes
     """
 
-    authenticator_uid_type = _convert_to_bytes(authenticator_uid_type)
-    authenticator_uid = _convert_to_bytes(authenticator_uid)
-    node_uid_type = _convert_to_bytes(node_uid_type)
-    node_uid = _convert_to_bytes(node_uid)
+    authenticator_uid_type = _convert_to_bytes(authenticator_uid_type_raw)
+    authenticator_uid = _convert_to_bytes(authenticator_uid_raw)
+    node_uid_type = _convert_to_bytes(node_uid_type_raw)
+    node_uid = _convert_to_bytes(node_uid_raw)
 
-    def _any_is_not_bytes(*args):
+    def _any_is_not_bytes(*args: bytes | list[bytes]) -> bool:
         return any(not isinstance(arg, bytes) for arg in args)
 
     if _any_is_not_bytes(authenticator_uid_type, authenticator_uid, node_uid_type, node_uid):
@@ -36,28 +40,25 @@ def _generate_extended_uid(authenticator_uid_type,
     if any(len(arg) != 1 for arg in [authenticator_uid_type, node_uid_type]):
         raise ValueError("UID type must be 1 byte")
 
-    return b"".join([
-        authenticator_uid_type,
-        authenticator_uid,
-        node_uid_type,
-        node_uid
-    ])
+    return b"".join([authenticator_uid_type, authenticator_uid, node_uid_type, node_uid])
 
 
-def _convert_to_bytes(param):
-    if isinstance(param, str):
-        if param.upper().startswith("0X"):
-            param = param.upper().replace("0X", "")
-            param = bytes.fromhex(param)
+def _convert_to_bytes(param_raw: bytes | int | str) -> bytes:
+    if isinstance(param_raw, str):
+        if param_raw.upper().startswith("0X"):
+            param_raw = param_raw.upper().replace("0X", "")
+            param = bytes.fromhex(param_raw)
         else:
-            param = bytes(param, "utf-8")
-    elif isinstance(param, int):
-        param = param.to_bytes(max(1, (param.bit_length() + 7)) // 8, byteorder="big")
+            param = bytes(param_raw, "utf-8")
+    elif isinstance(param_raw, int):
+        param = param_raw.to_bytes(max(1, (param_raw.bit_length() + 7)) // 8, byteorder="big")
+    else:
+        param = param_raw
 
     return param
 
 
-def _convert_to_int(param):
+def _convert_to_int(param: int | str) -> int:
     if isinstance(param, str):
         param = int(param, 0)
 
@@ -71,7 +72,8 @@ class ProvisioningDataException(Exception):
 
 
 class ProvisioningData(dict):
-    def __init__(self, config=None):
+    # flake8: noqa: C901
+    def __init__(self, config: Optional[str] = None):
 
         super(ProvisioningData, self).__init__()
 
@@ -85,29 +87,27 @@ class ProvisioningData(dict):
             for node in cfg:
 
                 if "method" not in cfg[node].keys():
-                    raise ProvisioningDataException("Invalid data config file. %s must include method.".format(node))
+                    raise ProvisioningDataException(f"Invalid data config file. {node} must include method.")
 
                 provision_methods = [e.value for e in ProvisioningMethod]
                 if cfg[node]["method"] not in provision_methods:
-                    raise ProvisioningDataException("Method must be one of {}".format(provision_methods))
+                    raise ProvisioningDataException(f"Method must be one of {provision_methods}")
 
                 if "uid" in cfg[node].keys():
-                    uid = cfg[node]["uid"]
+                    uid: str | int | bytes = cfg[node]["uid"]
                 elif cfg[node]["method"] == ProvisioningMethod.EXTENDED:
                     try:
                         uid = _generate_extended_uid(
                             cfg[node]["authenticator_uid_type"],
                             cfg[node]["authenticator_uid"],
                             cfg[node]["node_uid_type"],
-                            cfg[node]["node_uid"]
+                            cfg[node]["node_uid"],
                         )
 
                     except KeyError:
-                        raise ProvisioningDataException("Invalid data config file. %s must include UID information."
-                                                        .format(node))
+                        raise ProvisioningDataException(f"Invalid data config file. {node} must include UID information.")
                 else:
-                    raise ProvisioningDataException("Invalid data config file. %s must include UID information"
-                                                    .format(node))
+                    raise ProvisioningDataException(f"Invalid data config file. {node} must include UID information")
 
                 if "network_address" in cfg[node].keys():
                     network_address = _convert_to_int(cfg[node]["network_address"])
@@ -144,12 +144,9 @@ class ProvisioningData(dict):
                     factory_key = None
 
                 if "encryption_key" not in cfg[node].keys():
-                    raise ProvisioningDataException("Invalid data config file. %s must include encryption_key."
-                                                    .format(node))
+                    raise ProvisioningDataException(f"Invalid data config file. {node} must include encryption_key.")
                 if "authentication_key" not in cfg[node].keys():
-                    raise ProvisioningDataException("Invalid data config file. %s must include authentication_key."
-                                                    .format(node))
-
+                    raise ProvisioningDataException(f"Invalid data config file. {node} must include authentication_key.")
 
                 self.append(
                     _convert_to_bytes(uid),
@@ -166,17 +163,17 @@ class ProvisioningData(dict):
 
     def append(
         self,
-        uid,
-        method,
-        encryption_key,
-        authentication_key,
-        network_address,
-        network_channel,
-        node_id=None,
-        node_role=None,
-        user_specific=None,
-        factory_key=None,
-    ):
+        uid: bytes,
+        method: int,
+        encryption_key: bytes,
+        authentication_key: bytes,
+        network_address: Optional[int],
+        network_channel: Optional[int],
+        node_id: Optional[int] = None,
+        node_role: Optional[bytes] = None,
+        user_specific: Optional[dict[int, bytes | str]] = None,
+        factory_key: Optional[bytes] = None,
+    ) -> None:
 
         # TODO : parameter checks
         self[uid] = dict(
@@ -219,7 +216,7 @@ class ProvisioningData(dict):
             for k in self[uid]["user_specific"]:
                 logging.debug(" - %d : %s", k, self[uid]["user_specific"][k])
 
-    def getCbor(self, uid):
+    def getCbor(self, uid: bytes) -> bytes:
         self_dic = dict()
 
         self_dic[0] = self[uid]["encryption_key"]

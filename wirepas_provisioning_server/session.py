@@ -17,9 +17,15 @@ from Crypto.Hash import CMAC
 from Crypto.Cipher import AES
 from Crypto.Util import Counter
 
+from typing import Callable, Optional
+
 from wirepas_mesh_messaging import GatewayResultCode
-from .events import ProvisioningEventTimeout
+
+from .data import ProvisioningData
+from .events import ProvisioningEventPacketReceived, ProvisioningEvent, ProvisioningEventTimeout
 from .message import (
+    ProvisioningMessage,
+    ProvisioningMessageSTART,
     ProvisioningMessageDATA,
     ProvisioningMessageNACK,
     ProvisioningMessageTypes,
@@ -29,14 +35,14 @@ from .message import (
 
 
 class ProvisioningStates(enum.Enum):
-    """ Provisioning states """
+    """Provisioning states"""
 
     IDLE = 0
     WAIT_RESPONSE = 2
 
 
 class ProvisioningStatus(enum.Enum):
-    """ Provisioning status """
+    """Provisioning status"""
 
     ONGOING = 0
     SUCCESS = 1
@@ -54,12 +60,12 @@ class ProvisioningStatus(enum.Enum):
 class ProvisioningSession(threading.Thread):
     def __init__(
         self,
-        send_func,
-        session_id,
-        data,
-        on_session_finish,
-        retry=1,
-        timeout=180
+        send_func: Callable,
+        session_id: tuple[Optional[int], bytes, int],
+        data: ProvisioningData,
+        on_session_finish: Callable,
+        retry: int = 1,
+        timeout: int = 180,
     ):
         super(ProvisioningSession, self).__init__()
 
@@ -70,25 +76,25 @@ class ProvisioningSession(threading.Thread):
         self.timeout = timeout
         self.finish_cb = on_session_finish
 
-        self.event_q = queue.Queue()
+        self.event_q: queue.Queue[ProvisioningEvent] = queue.Queue()
 
         self.counter = random.getrandbits(16)
 
         self.state = ProvisioningStates.IDLE
         self.status = ProvisioningStatus.ONGOING
-        self._timer = None
+        self._timer: Optional[threading.Timer] = None
 
-        self.sink_id = None
-        self.gw_id = None
-        self._tx_time = 0
+        self.sink_id: Optional[int] = None
+        self.gw_id: Optional[int] = None
+        self._tx_time: int = 0
 
         self.daemon = True
         self.start()
 
-    def __str__(self):
+    def __str__(self) -> str:
         return "".join(
             [
-                "[{:08X}".format(self.session_id[0]),
+                "[{:08X}".format(self.session_id[0]) if self.session_id[0] is not None else "[None",
                 ", ",
                 "".join("{:02X}".format(x) for x in self.session_id[1]),
                 ", {:02X}".format(self.session_id[2]),
@@ -96,42 +102,38 @@ class ProvisioningSession(threading.Thread):
             ]
         )
 
-    def _timeout(self):
+    def _timeout(self) -> None:
         self.event_q.put(ProvisioningEventTimeout())
 
-    def _update_origin(self, msg):
-        if self._tx_time < msg.tx_time:
+    def _update_origin(self, msg: ProvisioningMessage) -> None:
+        if msg.tx_time and self._tx_time < msg.tx_time:
             self.sink_id = msg.sink_id
             self.gw_id = msg.gw_id
             self._tx_time = msg.tx_time
 
-    def _timer_start(self, timeout):
+    def _timer_start(self, timeout: float) -> None:
         if self._timer is not None:
             self._timer_cancel()
         self._timer = threading.Timer(self.timeout, self._timeout)
         self._timer.start()
 
-    def _timer_cancel(self):
+    def _timer_cancel(self) -> None:
         if self._timer is not None:
             self._timer.cancel()
             self._timer.join()
             self._timer = None
 
-    def _send_packet(self, payload):
+    def _send_packet(self, payload: bytes) -> GatewayResultCode:
         logging.debug("  - Sending packet (%s).", payload)
         try:
-            return self.send_func(gw_id=self.gw_id,
-                                  sink_id=self.sink_id,
-                                  dest=self.session_id[0],
-                                  src_ep=255,
-                                  dst_ep=246,
-                                  qos=1,
-                                  payload=payload)
+            return self.send_func(
+                gw_id=self.gw_id, sink_id=self.sink_id, dest=self.session_id[0], src_ep=255, dst_ep=246, qos=1, payload=payload
+            )
         except TimeoutError:
             logging.warning("  - Sending packet failed with timeout exception.")
             return GatewayResultCode.GW_RES_INTERNAL_ERROR
 
-    def _encrypt_packet(self, uid, iv, plain_text):
+    def _encrypt_packet(self, uid: bytes, iv: bytes, plain_text: bytes) -> bytes:
         enc_key = self.data[uid]["factory_key"][16:32]
         auth_key = self.data[uid]["factory_key"][0:16]
 
@@ -142,9 +144,7 @@ class ProvisioningSession(threading.Thread):
         logging.debug("   - Counter : %s", str(self.counter))
 
         # Authenticate Header + Payload
-        to_auth = ProvisioningMessageDATA(self.session_id[1],
-                                          self.session_id[2],
-                                          self.counter, plain_text).payload
+        to_auth = ProvisioningMessageDATA(self.session_id[1], self.session_id[2], self.counter, plain_text).payload
 
         # Create a CMAC / OMAC1 object.
         cobj = CMAC.new(auth_key, ciphermod=AES)
@@ -156,7 +156,7 @@ class ProvisioningSession(threading.Thread):
         # Encrypt payload + mic
         # Generate Initial Counter Block (ICB).
         ctr_bytes = self.counter + int.from_bytes(iv, byteorder="little", signed=False)
-        ctr_bytes = ctr_bytes % (2 ** 128)
+        ctr_bytes = ctr_bytes % (2**128)
         icb = ctr_bytes.to_bytes(16, byteorder="little")
 
         logging.debug("   -  ICB: %s", "".join("{:02X}".format(x) + " " for x in icb))
@@ -174,11 +174,12 @@ class ProvisioningSession(threading.Thread):
 
         return plain_text
 
-    def _process_start(self, msg):
+    # flake8: noqa: C901
+    def _process_start(self, msg: ProvisioningMessageSTART) -> None:
         # This is a START packet
 
-        if (msg.uid in self.data.keys() and self.data[msg.uid]["method"] == msg.method):
-            logging.info("  - Sending Provisioning DATA for UID(%s).", msg.uid)
+        if msg.uid in self.data.keys() and self.data[msg.uid]["method"] == msg.method:
+            logging.info("  - Sending Provisioning DATA for UID(%s).", msg.uid.hex())
 
             data_bytes = self.data.getCbor(msg.uid)
 
@@ -234,7 +235,8 @@ class ProvisioningSession(threading.Thread):
                 if res is GatewayResultCode.GW_RES_OK:
                     logging.info("  - NACK sent successfully, Provisioning FAILURE.")
                     self.status = ProvisioningStatus.ERROR_NOT_AUTHORIZED
-                    self._timer.cancel()
+                    if self._timer is not None:
+                        self._timer.cancel()
                     break
 
                 self.retry -= 1
@@ -243,29 +245,32 @@ class ProvisioningSession(threading.Thread):
                     res = self._send_packet(ProvisioningMessageNACK(self.session_id[1], self.session_id[2], reason).payload)
                 else:
                     logging.error("  - Error sending NACK - Too many retry - Provisioning FAILURE.")
-                    self._timer.cancel()
+                    if self._timer is not None:
+                        self._timer.cancel()
                     self.status = ProvisioningStatus.ERROR_SENDING_NACK
 
-    def _state_idle(self, event):
+    def _state_idle(self, event: ProvisioningEventPacketReceived) -> None:
         logging.info("%s State IDLE:", str(self))
 
-        if (event.type == "packet_rxd" and event.msg.msg_type == ProvisioningMessageTypes.START):
+        if event.type == "packet_rxd" and event.msg.msg_type == ProvisioningMessageTypes.START:
             logging.info("  - Received START packet.")
             self._update_origin(event.msg)
-            self._process_start(event.msg)
+            # Ignore type warning as we already checked the message type
+            self._process_start(event.msg)  # type: ignore
         else:
             logging.error("  - Received packet is not a START packet - Provisioning FAILURE.")
             self._timer_cancel()
             self.status = ProvisioningStatus.ERROR_NOT_START
 
-    def _state_wait_response(self, event):
+    def _state_wait_response(self, event: ProvisioningEventPacketReceived) -> None:
         logging.info("%s State Wait Node Response:", str(self))
 
         if event.type == "packet_rxd":
             self._update_origin(event.msg)
             if event.msg.msg_type == ProvisioningMessageTypes.START:
                 logging.warning("  - START packet (re)received" " - Re-send DATA.")
-                self._process_start(event.msg)
+                # Ignore type warning as we already checked the message type
+                self._process_start(event.msg)  # type: ignore
                 self._timer_start(self.timeout)
 
             elif event.msg.msg_type == ProvisioningMessageTypes.DATA_ACK:
@@ -274,7 +279,8 @@ class ProvisioningSession(threading.Thread):
                 self.status = ProvisioningStatus.SUCCESS
 
             elif event.msg.msg_type == ProvisioningMessageTypes.NACK:
-                logging.info("  - NACK received (%s)," " Provisioning FAILURE.", event.msg.reason)
+                # Ignore type warning as we already checked the message type
+                logging.info("  - NACK received (%s)," " Provisioning FAILURE.", event.msg.reason)  # type: ignore
                 self._timer_cancel()
                 self.status = ProvisioningStatus.ERROR_NACK_RECEIVED
         elif event.type == "timeout":
@@ -282,7 +288,7 @@ class ProvisioningSession(threading.Thread):
             self._timer_cancel()
             self.status = ProvisioningStatus.ERROR_NO_RESPONSE
 
-    def run(self):
+    def run(self) -> None:
 
         while self.status == ProvisioningStatus.ONGOING:
             try:
@@ -294,11 +300,13 @@ class ProvisioningSession(threading.Thread):
 
             # IDLE
             if self.state == ProvisioningStates.IDLE:
-                self._state_idle(event)
+                # Ignore type warning as we already checked the event type
+                self._state_idle(event)  # type: ignore
 
             # WAIT NODE RESPONSE
             elif self.state == ProvisioningStates.WAIT_RESPONSE:
-                self._state_wait_response(event)
+                # Ignore type warning as we already checked the event type
+                self._state_wait_response(event)  # type: ignore
 
             else:
                 logging.error("%s Invalid state - Provisioning FAILURE.", str(self))

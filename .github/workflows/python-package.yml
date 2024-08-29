@@ -24,15 +24,20 @@ jobs:
     steps:
     - uses: actions/checkout@v2
 
-    - name: Set up Python 3.8
+    - name: Set up Python 3.12
       uses: actions/setup-python@v2
       with:
-        python-version: "3.8"
+        python-version: "3.12"
 
     - name: Install dependencies
       run: |
         python -m pip install --upgrade pip
-        python -m pip install flake8 setuptools wheel
+        python -m pip install black flake8 setuptools wheel mypy==1.10.1 types-PyYAML
+        python -m pip install -r requirements.txt
+
+    - name: Check formatting with black
+      run: black --target-version py312 --line-length 127 --required-version 24 --check wirepas_provisioning_server/
+
     - name: Lint with flake8
       run: |
         # stop the build if there are Python syntax errors or undefined names
@@ -42,15 +47,12 @@ jobs:
     #- name: Install wheel locally
     #  run: pip install .
 
-    - name: Get short sha
-      uses: benjlevesque/short-sha@v1.2
-      id: short-sha
-      with:
-        length: 6
+    - name: Check typing with mypy
+      run: mypy wirepas_provisioning_server/
 
     - name: Set Version for master push
       if: ${{ github.event_name == 'push' }}
-      run: echo "VERSION=${{ steps.short-sha.outputs.sha }}" >> $GITHUB_ENV
+      run: echo "VERSION=v0.0.dev0" >> $GITHUB_ENV
 
     - name: Set Version for release
       if: ${{ github.event_name == 'release' }}
@@ -58,7 +60,7 @@ jobs:
 
     - name: Set Version for PR
       if: ${{ github.event_name == 'pull_request' }}
-      run: echo "VERSION=PR_${{ github.event.pull_request.number }}" >> $GITHUB_ENV
+      run: echo "VERSION=0.0.dev${{ github.event.pull_request.number }}" >> $GITHUB_ENV
 
     - name: Set Version for manual triggering
       if: ${{ github.event_name == 'workflow_dispatch' }}
