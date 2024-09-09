@@ -94,6 +94,7 @@ To run it with docker type:
                -e WM_SERVICES_MQTT_PORT=8883 \
                -e WM_SERVICES_MQTT_USERNAME=username \
                -e WM_SERVICES_MQTT_PASSWORD=password \
+               -e WM_PROV_LOG_LEVEL=INFO \
                wirepas/provisioning-server
 ```
 
