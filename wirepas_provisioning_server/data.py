@@ -106,12 +106,12 @@ class ProvisioningData(dict):
                 else:
                     raise ProvisioningDataException(f"Invalid data config file. Node {node_name} must include UID information")
 
-                if "network_address" in node_cfg.keys():
+                if "address" in cfg["networks"][network_name].keys():
                     network_address = convert_to_int(cfg["networks"][network_name]["address"])
                 else:
                     network_address = None
 
-                if "network_channel" in node_cfg.keys():
+                if "channel" in cfg["networks"][network_name].keys():
                     network_channel = convert_to_int(cfg["networks"][network_name]["channel"])
                 else:
                     network_channel = None
