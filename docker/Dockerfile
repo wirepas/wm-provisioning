@@ -3,7 +3,7 @@ FROM alpine:3.20 AS builder
 RUN adduser --disabled-password wirepas
 
 # Install needed software
-RUN apk add --no-cache gcc make musl-dev python3-dev py3-pip py3-wheel py3-setuptools
+RUN apk add --no-cache gcc make musl-dev python3-dev py3-pip py3-wheel py3-setuptools rust cargo
 RUN apk add --no-cache bash
 
 # Copy provisioning server files
