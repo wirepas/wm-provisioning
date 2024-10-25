@@ -134,8 +134,8 @@ class ProvisioningSession(threading.Thread):
             return GatewayResultCode.GW_RES_INTERNAL_ERROR
 
     def _encrypt_packet(self, uid: bytes, iv: bytes, plain_text: bytes) -> bytes:
-        enc_key = self.data[uid]["factory_key"][16:32]
-        auth_key = self.data[uid]["factory_key"][0:16]
+        enc_key = self.data[uid].factory_key[16:32]
+        auth_key = self.data[uid].factory_key[0:16]
 
         logging.info("  - Encrypt DATA packet")
         # Increment counter
@@ -178,10 +178,10 @@ class ProvisioningSession(threading.Thread):
     def _process_start(self, msg: ProvisioningMessageSTART) -> None:
         # This is a START packet
 
-        if msg.uid in self.data.keys() and self.data[msg.uid]["method"] == msg.method:
+        if msg.uid in self.data.keys() and self.data[msg.uid].method == msg.method:
             logging.info("  - Sending Provisioning DATA for UID(%s).", msg.uid.hex())
 
-            data_bytes = self.data.getCbor(msg.uid)
+            data_bytes = self.data[msg.uid].getCbor()
 
             if msg.method == ProvisioningMethod.UNSECURED:
                 key_idx = 0
