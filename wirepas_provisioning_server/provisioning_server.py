@@ -147,7 +147,7 @@ def main() -> None:
     )
     parser.add_argument(
         "--loglevel",
-        default=get_default_value_from_env("WM_PROV_LOG_LEVEL", "DEBUG"),
+        default=get_default_value_from_env("WM_PROV_LOG_LEVEL", "INFO"),
         type=str,
         help=f'Log level, choose one of {", ".join(logging._nameToLevel.keys())} ',
     )
