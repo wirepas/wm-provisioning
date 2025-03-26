@@ -69,7 +69,7 @@ If you are not familiar with Docker, please refer to the official documentation 
 ### Dockerhub
 
 Provisioning server builds are available from dockerhub under the
-[Provisioning server registry](https://hub.docker.com/r/wirepas/provisioning-server).
+[Provisioning server registry](https://hub.docker.com/r/wirepas/provisioning_server).
 
 The latest tag points to the current stable release, whereas the edge tag points to the top of master. The latest tag is built
 automatically at dockerhub whenever this repository is tagged. The edge tag is built after each single merge into master.
@@ -77,8 +77,8 @@ automatically at dockerhub whenever this repository is tagged. The edge tag is b
 To pull the Provisioning server image from dockerhub use:
 
 ```shell
-    docker pull wirepas/provisioning-server:latest
-    docker pull wirepas/provisioning-server:<tag>
+    docker pull wirepas/provisioning_server:latest
+    docker pull wirepas/provisioning_server:<tag>
 ```
 
 ### Running with docker
@@ -95,7 +95,7 @@ To run it with docker type:
                -e WM_SERVICES_MQTT_USERNAME=username \
                -e WM_SERVICES_MQTT_PASSWORD=password \
                -e WM_PROV_LOG_LEVEL=INFO \
-               wirepas/provisioning-server
+               wirepas/provisioning_server
 ```
 
 ### Running with compose
@@ -146,7 +146,7 @@ PROV_SRV_TAG=edge docker-compose up -d
 To build the image locally in the root of the repo type:
 
 ```shell
-    docker build -f docker/Dockerfile -t provisioning-server .
+    docker build -f docker/Dockerfile -t provisioning_server .
 ```
 
 Alternatively you can also build using the docker-compose.yml present in
