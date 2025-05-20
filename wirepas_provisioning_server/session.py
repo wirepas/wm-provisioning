@@ -61,6 +61,7 @@ class ProvisioningSession(threading.Thread):
     def __init__(
         self,
         send_func: Callable,
+        resp_ep: tuple[int, int],
         session_id: tuple[Optional[int], bytes, int],
         data: ProvisioningData,
         on_session_finish: Callable,
@@ -70,6 +71,7 @@ class ProvisioningSession(threading.Thread):
         super(ProvisioningSession, self).__init__()
 
         self.send_func = send_func
+        self.resp_ep = resp_ep
         self.session_id = session_id
         self.data = data
         self.retry = retry
@@ -127,7 +129,13 @@ class ProvisioningSession(threading.Thread):
         logging.debug("  - Sending packet (%s).", payload)
         try:
             return self.send_func(
-                gw_id=self.gw_id, sink_id=self.sink_id, dest=self.session_id[0], src_ep=255, dst_ep=246, qos=1, payload=payload
+                gw_id=self.gw_id,
+                sink_id=self.sink_id,
+                dest=self.session_id[0],
+                src_ep=self.resp_ep[0],
+                dst_ep=self.resp_ep[1],
+                qos=1,
+                payload=payload,
             )
         except TimeoutError:
             logging.warning("  - Sending packet failed with timeout exception.")
@@ -205,6 +213,8 @@ class ProvisioningSession(threading.Thread):
                     self.state = ProvisioningStates.WAIT_RESPONSE
                     self._timer_start(self.timeout)
                     break
+                else:
+                    logging.debug("  - DATA packet not sent: res:{}.".format(res))
 
                 self.retry -= 1
                 if self.retry >= 0:
@@ -215,6 +225,7 @@ class ProvisioningSession(threading.Thread):
                     logging.error("  - %s - Too many retry - Provisioning FAILURE.", msg)
                     self._timer_cancel()
                     self.status = ProvisioningStatus.ERROR_SENDING_DATA
+                    return
 
         else:
             self.status = ProvisioningStatus.ERROR_NOT_AUTHORIZED
