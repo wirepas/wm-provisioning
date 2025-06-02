@@ -10,12 +10,60 @@
 import cbor2
 import yaml
 import logging
-
 from typing import Final, Optional
+import dataclasses
 
 from wirepas_provisioning_server.helpers import convert_to_bytes, convert_to_int, ProvisioningDataException
 from wirepas_provisioning_server.message import ProvisioningMethod
 from wirepas_provisioning_server.migrate_config import ConfigFileMigration
+
+
+@dataclasses.dataclass(frozen=True)
+class ProvisioningDataEndpoints:
+    """Endpoints for provisioning data packets"""
+
+    req_ep: tuple[int, int]
+    resp_ep: tuple[int, int]
+
+
+class ProvisioningDataConf:
+    """Configuration class for provisioning data packets endpoints settings. Maps the networks
+    to profiles provisioning data packet endpoints."""
+
+    DATA_EPS: list[ProvisioningDataEndpoints] = [
+        ProvisioningDataEndpoints(req_ep=(246, 255), resp_ep=(255, 246)),
+        ProvisioningDataEndpoints(req_ep=(160, 39), resp_ep=(160, 40)),
+    ]
+    PROFILE_EP_MAP: dict[str, ProvisioningDataEndpoints]  # initialization made after class definition
+
+    def __init__(self, profiles: set[str] = set()) -> None:
+        self.data_endpoints: set[ProvisioningDataEndpoints] = set()
+        self.profiles: set[str] = set()
+        for profile in profiles:
+            self.add_profile(profile)
+
+    def add_profile(self, profile: str) -> None:
+        if profile in ProvisioningDataConf.PROFILE_EP_MAP.keys():
+            self.profiles.add(profile)
+            self.data_endpoints.add(ProvisioningDataConf.PROFILE_EP_MAP[profile])
+        else:
+            raise KeyError(
+                "Profile {} not not supported. Supported values are {}.".format(profile, self.PROFILE_EP_MAP.keys())
+            )
+
+    def get_resp_ep_by_req_ep(self, req_ep: tuple[int, int]) -> tuple[int, int]:
+        for data_ep in self.data_endpoints:
+            if req_ep == data_ep.req_ep:
+                return data_ep.resp_ep
+
+        raise KeyError("End point not found error: {}.".format(req_ep))
+
+
+ProvisioningDataConf.PROFILE_EP_MAP = {
+    "2.4G": ProvisioningDataConf.DATA_EPS[0],
+    "SubG": ProvisioningDataConf.DATA_EPS[0],
+    "5GMesh": ProvisioningDataConf.DATA_EPS[1],
+}
 
 
 def _generate_extended_uid(
@@ -50,6 +98,8 @@ class ProvisioningData(dict):
     def __init__(self, config: Optional[str] = None):
 
         super(ProvisioningData, self).__init__()
+
+        self.provisioning_data_conf = ProvisioningDataConf(profiles={"2.4G", "SubG", "5GMesh"})
 
         if config is not None:
             migration = ConfigFileMigration(config)
@@ -195,7 +245,7 @@ class ProvisioningData(dict):
         if factory_key is not None:
             self[uid]["factory_key"] = factory_key
 
-        logging.info("Append new UID: %s", uid.hex())
+        logging.info("Append new UID#: %s", uid.hex())
         logging.debug(" -  method: %s", method)
         logging.debug(" -  factory_key: %s", factory_key)
         logging.debug(" -  encryption_key: %s", encryption_key)

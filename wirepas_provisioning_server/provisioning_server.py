@@ -41,8 +41,9 @@ class ProvisioningServer:
         self.sessions: dict[tuple[Optional[int], bytes, int], ProvisioningSession] = {}
         self.data = ProvisioningData(settings)
 
-        # Register for packets on Provisioning Endpoints [246:255]
-        interface.register_data_cb(self.on_data_received, src_ep=246, dst_ep=255)
+        # Register for data packets to provisioning endpoints
+        for ep in self.data.provisioning_data_conf.data_endpoints:
+            interface.register_uplink_traffic_cb(self.on_data_received, src_ep=ep.req_ep[0], dst_ep=ep.req_ep[1])
 
     def on_session_finish(self, key: tuple[int, bytes, int], status: ProvisioningStatus) -> None:
         logging.info(
@@ -55,6 +56,7 @@ class ProvisioningServer:
     def on_data_received(self, data: ReceivedDataEvent) -> None:
         try:
             msg_data = ProvisioningMessageFactory.map(data)
+            req_ep = (data.source_endpoint, data.destination_endpoint)
         except ProvisioningMessageException as e:
             print(e)
             return
@@ -65,9 +67,12 @@ class ProvisioningServer:
             self.sessions[msg_data.msg_id].event_q.put(ev)
             logging.debug("Found SM with id: %s.", msg_data)
         except KeyError:
-            logging.info("Create new SM with id: %s.", msg_data)
+            resp_ep = self.data.provisioning_data_conf.get_resp_ep_by_req_ep(req_ep)
+
+            logging.info("Create new SM with id: %s, ep:%d,%d.", msg_data, resp_ep[0], resp_ep[1])
             self.sessions[msg_data.msg_id] = ProvisioningSession(
                 self.interface.send_message,
+                resp_ep,
                 msg_data.msg_id,
                 self.data,
                 self.on_session_finish,
