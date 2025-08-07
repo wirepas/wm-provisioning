@@ -17,6 +17,18 @@ from wirepas_provisioning_server.helpers import convert_to_bytes, convert_to_int
 from wirepas_provisioning_server.message import ProvisioningMethod
 from wirepas_provisioning_server.migrate_config import ConfigFileMigration
 
+class ProvisioningDataIds:
+    """CBOR IDs for provisioning data - must match values defined in SDK provisioning library"""
+    ENC_KEY = 0
+    AUTH_KEY = 1
+    NW_ADDR = 2
+    NW_CHANNEL = 3
+    NODE_ADDR = 4
+    NODE_ROLE = 5
+    NW_KEY_SEQ = 6
+    MGMT_ENC_KEY = 7
+    MGMT_AUTH_KEY = 8
+    MGMT_KEY_SEQ = 9
 
 @dataclasses.dataclass(frozen=True)
 class ProvisioningDataEndpoints:
@@ -175,6 +187,26 @@ class ProvisioningData(dict):
                     node_role = convert_to_bytes(node_cfg["node_role"])
                 else:
                     node_role = None
+                
+                if "network_key_sequence" in node_cfg.keys():
+                    network_key_sequence = convert_to_int(node_cfg["network_key_sequence"])
+                else:
+                    network_key_sequence = None
+
+                if "management_encryption_key" in node_cfg.keys():
+                    management_encryption_key = convert_to_bytes(node_cfg["management_encryption_key"])
+                else:
+                    management_encryption_key = None
+
+                if "management_authentication_key" in node_cfg.keys():
+                    management_authentication_key = convert_to_bytes(node_cfg["management_authentication_key"])
+                else:
+                    management_authentication_key = None
+
+                if "management_key_sequence" in node_cfg.keys():
+                    management_key_sequence = convert_to_int(node_cfg["management_key_sequence"])
+                else:
+                    management_key_sequence = None
 
                 if "user_specific" in node_cfg.keys():
                     user_specific = dict()
@@ -199,6 +231,10 @@ class ProvisioningData(dict):
                     network_channel,
                     node_id=node_id,
                     node_role=node_role,
+                    network_key_sequence=network_key_sequence,
+                    management_encryption_key=management_encryption_key,
+                    management_authentication_key=management_authentication_key,
+                    management_key_sequence=management_key_sequence,
                     user_specific=user_specific,
                     factory_key=factory_key,
                 )
@@ -213,6 +249,10 @@ class ProvisioningData(dict):
         network_channel: Optional[int],
         node_id: Optional[int] = None,
         node_role: Optional[bytes] = None,
+        network_key_sequence: Optional[int] = None,
+        management_encryption_key: Optional[bytes] = None,
+        management_authentication_key: Optional[bytes] = None,
+        management_key_sequence: Optional[int] = None,
         user_specific: Optional[dict[int, bytes | str]] = None,
         factory_key: Optional[bytes] = None,
     ) -> None:
@@ -235,6 +275,18 @@ class ProvisioningData(dict):
         if node_role is not None:
             self[uid]["node_role"] = node_role
 
+        if network_key_sequence is not None:
+            self[uid]["network_key_sequence"] = network_key_sequence
+            
+        if management_encryption_key is not None:
+            self[uid]["management_encryption_key"] = management_encryption_key
+            
+        if management_authentication_key is not None:
+            self[uid]["management_authentication_key"] = management_authentication_key
+            
+        if management_key_sequence is not None:
+            self[uid]["management_key_sequence"] = management_key_sequence
+
         if user_specific is not None:
             self[uid]["user_specific"] = dict()
             for k in user_specific:
@@ -254,6 +306,10 @@ class ProvisioningData(dict):
         logging.debug(" -  network_channel: %s", network_channel)
         logging.debug(" -  node_id: %s", node_id)
         logging.debug(" -  node_role: %s", node_role)
+        logging.debug(" -  network_key_sequence: %s", network_key_sequence)
+        logging.debug(" -  management_encryption_key: %s", management_encryption_key)
+        logging.debug(" -  management_authentication_key: %s", management_authentication_key)
+        logging.debug(" -  management_key_sequence: %s", management_key_sequence)
         if "user_specific" in self[uid].keys():
             for k in self[uid]["user_specific"]:
                 logging.debug(" - %d : %s", k, self[uid]["user_specific"][k])
@@ -261,20 +317,32 @@ class ProvisioningData(dict):
     def getCbor(self, uid: bytes) -> bytes:
         self_dic = dict()
 
-        self_dic[0] = self[uid]["encryption_key"]
-        self_dic[1] = self[uid]["authentication_key"]
+        self_dic[ProvisioningDataIds.ENC_KEY] = self[uid]["encryption_key"]
+        self_dic[ProvisioningDataIds.AUTH_KEY] = self[uid]["authentication_key"]
 
         if "network_address" in self[uid].keys():
-            self_dic[2] = self[uid]["network_address"]
+            self_dic[ProvisioningDataIds.NW_ADDR] = self[uid]["network_address"]
 
         if "network_channel" in self[uid].keys():
-            self_dic[3] = self[uid]["network_channel"]
+            self_dic[ProvisioningDataIds.NW_CHANNEL] = self[uid]["network_channel"]
 
         if "node_id" in self[uid].keys():
-            self_dic[4] = self[uid]["node_id"]
+            self_dic[ProvisioningDataIds.NODE_ADDR] = self[uid]["node_id"]
 
         if "node_role" in self[uid].keys():
-            self_dic[5] = self[uid]["node_role"]
+            self_dic[ProvisioningDataIds.NODE_ROLE] = self[uid]["node_role"]
+
+        if "network_key_sequence" in self[uid].keys():
+            self_dic[ProvisioningDataIds.NW_KEY_SEQ] = self[uid]["network_key_sequence"]
+
+        if "management_encryption_key" in self[uid].keys():
+            self_dic[ProvisioningDataIds.MGMT_ENC_KEY] = self[uid]["management_encryption_key"]
+        
+        if "management_authentication_key" in self[uid].keys():
+            self_dic[ProvisioningDataIds.MGMT_AUTH_KEY] = self[uid]["management_authentication_key"]
+            
+        if "management_key_sequence" in self[uid].keys():
+            self_dic[ProvisioningDataIds.MGMT_KEY_SEQ] = self[uid]["management_key_sequence"]
 
         if "user_specific" in self[uid].keys():
             for key in self[uid]["user_specific"]:
