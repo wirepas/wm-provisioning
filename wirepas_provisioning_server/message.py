@@ -34,7 +34,7 @@ class ProvisioningMethod(IntEnum):
     UNSECURED = 0
     SECURED = 1
     EXTENDED = 3
-    KEY_MGMT = 5
+    EXTENDED_UID_KEY_MGMT = 7
 
 
 class ProvisioningNackReason(IntEnum):

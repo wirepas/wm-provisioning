@@ -152,7 +152,7 @@ class ProvisioningData(dict):
 
                 if "uid" in node_cfg.keys():
                     uid: str | int | bytes = node_cfg["uid"]
-                elif node_cfg["method"] == ProvisioningMethod.EXTENDED:
+                elif node_cfg["method"] == ProvisioningMethod.EXTENDED or node_cfg["method"] == ProvisioningMethod.EXTENDED_UID_KEY_MGMT:
                     try:
                         uid = _generate_extended_uid(
                             node_cfg["authenticator_uid_type"],
