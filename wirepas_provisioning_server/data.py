@@ -17,8 +17,10 @@ from wirepas_provisioning_server.helpers import convert_to_bytes, convert_to_int
 from wirepas_provisioning_server.message import ProvisioningMethod
 from wirepas_provisioning_server.migrate_config import ConfigFileMigration
 
+
 class ProvisioningDataIds:
     """CBOR IDs for provisioning data - must match values defined in SDK provisioning library"""
+
     ENC_KEY = 0
     AUTH_KEY = 1
     NW_ADDR = 2
@@ -29,6 +31,7 @@ class ProvisioningDataIds:
     MGMT_ENC_KEY = 7
     MGMT_AUTH_KEY = 8
     MGMT_KEY_SEQ = 9
+
 
 @dataclasses.dataclass(frozen=True)
 class ProvisioningDataEndpoints:
@@ -152,7 +155,10 @@ class ProvisioningData(dict):
 
                 if "uid" in node_cfg.keys():
                     uid: str | int | bytes = node_cfg["uid"]
-                elif node_cfg["method"] == ProvisioningMethod.EXTENDED or node_cfg["method"] == ProvisioningMethod.EXTENDED_UID_KEY_MGMT:
+                elif node_cfg["method"] in (
+                    ProvisioningMethod.EXTENDED,
+                    ProvisioningMethod.EXTENDED_UID_KEY_MGMT,
+                ):
                     try:
                         uid = _generate_extended_uid(
                             node_cfg["authenticator_uid_type"],
@@ -187,7 +193,7 @@ class ProvisioningData(dict):
                     node_role = convert_to_bytes(node_cfg["node_role"])
                 else:
                     node_role = None
-                
+
                 if "network_key_sequence" in node_cfg.keys():
                     network_key_sequence = convert_to_int(node_cfg["network_key_sequence"])
                 else:
@@ -277,13 +283,13 @@ class ProvisioningData(dict):
 
         if network_key_sequence is not None:
             self[uid]["network_key_sequence"] = network_key_sequence
-            
+
         if management_encryption_key is not None:
             self[uid]["management_encryption_key"] = management_encryption_key
-            
+
         if management_authentication_key is not None:
             self[uid]["management_authentication_key"] = management_authentication_key
-            
+
         if management_key_sequence is not None:
             self[uid]["management_key_sequence"] = management_key_sequence
 
@@ -337,10 +343,10 @@ class ProvisioningData(dict):
 
         if "management_encryption_key" in self[uid].keys():
             self_dic[ProvisioningDataIds.MGMT_ENC_KEY] = self[uid]["management_encryption_key"]
-        
+
         if "management_authentication_key" in self[uid].keys():
             self_dic[ProvisioningDataIds.MGMT_AUTH_KEY] = self[uid]["management_authentication_key"]
-            
+
         if "management_key_sequence" in self[uid].keys():
             self_dic[ProvisioningDataIds.MGMT_KEY_SEQ] = self[uid]["management_key_sequence"]
 
